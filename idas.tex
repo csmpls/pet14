@@ -1,0 +1,98 @@
+
+
+
+
+\documentclass{article}
+\usepackage[affil-it]{authblk}
+\title{Peer-to-peer messaging with end-to-end encryption}
+\author{Nick Merrill%
+	\thanks{Final project for Info 219, Instructor Doug Tygar, University of California, Berkeley.\\ Electronic address: \texttt{ffff@berkeley.edu}}}
+\affil{School of Information, University of California, Berkeley}
+
+\date{December 2013}
+
+\begin{document}
+   \maketitle
+
+\section{Abstract}
+I present Idas Blue, a platform for private, asynchronous communication that does not require central servers. Posts are distributed among the application's users over BitTorrent, remaining encrypted until the intended recipient enters a private password. Rather than storing plaintext permanently on the recipient's disk, posts are decrypted in her web browser's renderer using JavaScript. I propose two use cases, one for censorship-resistant media dissemination another for decentralized financial infrastructure. I discuss several potential extensions to Idas Blue, including a scheme for increasing data availability by sharing information promiscuously between peers. I highlight the importance of usability in systems that require directed key trades.
+
+\section{Introduction}
+Existing platforms for asynchronous communication (e.g., email, social networks, Twitter) are usually designed around central information stores. Even when the application's data and logic are distributed across many physical machines, servers remain under the ownership of a single economic entity (usually a corporation, but any system of computers and human power structures will work for argument). Almost invariably, applications are designed in such a way that the controlling entity can, with sufficient motivation, access the plaintext communications of its users.
+
+\subsection{No party should have unprivliged access to all user communications}
+Global surveillance practices often rely on using political pressure to subpoena data or metadata from the providers of asynchronous communications platforms. Which begs the question: why does the service provider - or any single party, for that matter - have access to plaintext user communications? Public key cryptography exists to assure that (properly-managed) sets of keys and ciphertext can be passed openly over insecure channels. In a well-implemented cryptosystem, the handover of users' plaintext communications should be impossible without the unauthorized party either by extorting passwords from communication participants or by expending very large amounts of computational work. 
+
+Recently, the US government subpoenaed Lavabit, an encrypted email platform, for user communications and the cryptographic keys used to protect them. \cite{lavabit} The subpoena highlights a core weakness in Lavabit's design: even if messages are encrypted to good standards, storing keys in a centralized way allows a malicious party with sufficient access to simply collect the keys and ciphertexts at once. 
+
+\subsection{Decentralizing keys and content}
+We imagine that communicators are more motivated to protect their private keys than their service providers. A more secure messaging system could store private keys only with the users who need them. While this design raises the possibility of a user losing a key and becoming unable to recover his data, it makes the unauthorized handover of plaintext data much less likely. Eavesdroppers would have to recover keys from communication participants lest they expend a large amount of computational work cracking the password by force. 
+
+Furthermore, posts themselves could be distributed throughout a network of readers. Ideally, the original poster would be able to delete a post from his original computer and have this change synchronize throughout the network of people who seed from him. This way, posters have some room for deniability in the case of a compromised key. (In most communications systems, users often have no way of knowing if a message has been permanently deleted).
+
+\subsection{Related work}
+A few open-source projects have used peer-to-peer distribution networks to build asynchronous communications platforms. \cite{blogracy,frenzy} A recent project, Vole, transmits posts to readers using BitTorrent Sync, a closed-source utility that emulates Dropbox functionality using the BitTorrent protocol. \cite{vole,bts,cohen03} A user who ``owns'' a file can share it with others, syncing it to them in a peer-to-peer fashion. Crucially, BitTorrent Sync allows users to generate unique addresses, which can be passed to peers as a token by which they can “follow” changes to the directory. 
+
+Although Vole addresses many of the issues discussed sabove, a few features of its design could negatively affect user privacy and platform stability. For one, all posts are stored in plaintext. If a user's public address falls into the hands of an untrusted party, this party gains free access to her communications. Furthermore, if this user gives her public key to only two or three trusted peers, she limits the redundancy (and thus the availability) of her data. So Vole requires that users trade the accessibility of their data for its privacy.
+
+A better system would allow users to distribute posts broadly, even to untrusted peers. Using assymetric cryptography, posts could be encrypted with a public key and given to an arbitrary number of third parties. Only through the trade of a \textit{private} key would these posts appear to their recipients.
+
+\section{Using Idas Blue}
+Alice runs Idas Blue, a small Go script, on her computer. It serves a webpage locally, from which she sees a feed of posts from the various accounts she follows. Bored with her newsfeed, she decides to follow Bob, so she enters his public address into the web interface. 
+
+Bob's posts appear on her feed. Some of them are grayed out and collapsed. These posts are encrypted with a password. Over some other channel, Bob sends Alice a password for his encrypted posts. After entering this password into her web interface, these posts appear in Alice's browser. When she refreshes her browser, they are once again grayed out. 
+
+Alice notices that, even after entering Bob's password, some of his posts remain grayed out. Alice concludes that Bob encrypted these posts with a password she does not know about.
+
+\subsection{Peer-to-peer distribution}
+Posts are stored in a local folder as JSON files. Using BitTorrent Sync, users generate a public key associated with their posts folder. When one user follows another, she enters the user's public key and thus downloads that user's posts folder. BitTorrent Sync supports optional read and write permissions, so subscribers may or may not be able to modify the posts of people they follow such that their changes are persistent for all other subscribers, depending on the intentions of the posts' creator.
+
+Since posts can be encrypted with a private password, they can be disseminated broadly to a network of strangers or other un-trusted peers. Peers without the proper password will simply ``seed'' the file, offering redundancy in the network and increasing its availability to people with the password. 
+
+\subsection{End-to-end encryption}
+Using the Stanford JavaScript Cryptography Library (SJCL), a lightweight implementation of AES designed to run in all modern web browsers, we are able to decrypt AES keys in the browser's canvas, assuring that plaintext is not stored locally without directed user action. SJCL exhibits excellent performance in both encryption and decyption; it uses precomputed hash tables to reduce its computational footprint. \cite{stark09}
+
+When a user password-protects a post, SJCL uses this password as an AES key, storing the ciphertext in a JSON file on the user's disk. This encrypted JSON file is synchronized to all users who have followed the poster's public key. Only those with the private key (passed over some private channel) can decrypt these JSON files. When the end reader decrypts this file, SJCL runs its decrypt function, and the plaintext is inserted into the HTML file using JQuery. Once again, this plaintext will not be stored permanently on the user's local machine without directed user action. 
+
+\section{Use cases}
+I present two major use cases for Idas Blue. These use cases leverage both the decentralized aspects of the system's distribution protocol and its simple asymmetric encryption scheme to offer structural and functional benefits for disparate user bases.
+
+\subsection{Dissident media}
+Idas Blue's decentralized post storage makes eavesdropping difficult. There exists no central ``honeypot'' from which posts can be subpoenaed or collected. Even if an unauthorized party did come across a large storage of user posts, they would need to brute force the keys to these psots (or extort the key from a participant in the communication). 
+
+Although we do not know the exact structure of most government censorship schemes (for example, the so-called Great Firewall of China), speculative research by Burnett et al. (2010) indicates that distributed, peer-to-peer content distribution may circumvent contemporary blocking strategies due to the unpredictable ranges of users' IP addresses and to the protocol's piecewise delivery methods. \cite{burnett10} These features make Idas Blue appealing to users looking to broadcast sensitive content over hostile channels. Assuming readers and authors manage their keys properly, Idas Blue could allow communication to arbitrarily large readerships with diminished risks of censorship or eavesdrop.
+
+
+\subsection{Financial cryptography}
+In principal, Idas Blue could be used in a decentralized, low-infrastructure system of ATMs. Without any central servers, user's telling data could be distributed across numerous ATMs as encrypted JSON files. The user's pin, or password, would be used to decrypt information locally at the terminal terminal being used. When a user withdraws or deposits money (i.e., when the user's telling information is updated), it can be synced to other ATMs in the network in its encrypted form.
+
+This strategy offers a few improvements over centralized ATM infrastructures. Centralized servers are both a convenient point of failure and an obvious point of attack for malicious parties. A distributed system does not require centralized servers, making ATM systems potentially less expensive to set up. It is also resistant to failure even when multiple ATMs go offline. Even if an ATM memories were compromised, users would be in no danger of compromise so long as they change their  Peer-to-peer telling systems could be more resistant to slowdowns due to heavy network traffic, as traffic could be distributed evenly across multiple available peers.
+
+\section{Future work}
+I discuss potential improvements to Idas Blue's infrastructure, along with possibilities for extending the system's usefulness as a media-sharing platform. I frame key-sharing as a possible subject for future usability research.
+
+\subsection{Promiscuous networking}
+Currently, if users wish to increase the redundancy of their posts by sharing them with peers who are not authorized to view these posts, they must convince untrusted peers to follow their public key. Potentially, Idas Blue could share posts \textit{promiscuously} with other members of the network: seeding encrypted posts to untrusted recipients with neither the poster's nor the recipients' knowledge or permission, increasing the redundancy of these posts without sacrificing their poster's privacy. This system can be conceptualized in economic terms as users ``paying'' for the privilige of using the network by hosting posts on behalf of unknown third parties.
+
+\subsection{Open-source distribution backend}
+BitTorrent Sync is a closed-source software project. Since it has no API, users must add and generate public keys through its proprietary interface. Ideally, Idas Blue should use an open-source peer-to-peer protocol, and ideally a protocol with an API that can be called from the software's main web interface.
+
+This protocol would need to include a few of BitTorrent Sync's essential features. It must allow the generation of keys or addresses from which posts can be easily followed. It must also allow post authors to set read/write/delete permissions, assuring that posts tampered with by readers will not be synchronized to the rest of the network if the original poster does not desire it. Ideally, this protcol would allow a namespace for Idas Blue, in which unique (and memorable) usernames could be registered. 
+
+\subsection{Media integration}
+In theory, peer-to-peer syncronization protocols can allow the transmission of any type of file. Users might attach photos, videos or music to their posts. Since these types of media can usually be displayed in web-browsers, Idas Blue might integrate media support into its posts interface, extending its functionality as a social network or communications protocol to match functionality common to blogs and other asynchronous media platforms. 
+
+In principal, Idas Blue could be used to subscribe to regularly updated media, allowing users to torrent shows from other viewers where they would have before streamed them. A media-friendly version of Idas Blue could allow peer-to-peer alternatives to media services like YouTube, Flickr or Soundcloud, and would not require centralized server infrastructure.
+
+\subsection{Key sharing and usability}
+Currently, in order to maintain post secrecy, users must share their private (post-specific) keys over some private channel. This mechanism trusts users to manage their keys well, but offers no specific advice on how to do so.
+
+In the future, Idas Blue might offer an integrated interface for key-sharing. When a key is made, it might launch a direct-to-peer delivery (i.e., a two party connection) to the end user. Future research might determine whether such an interface offers improvements over existing mechanisms, and whether keys should be visible to the posters or recipients at all.
+
+\section{Conclusion}
+This paper presented Idas Blue, a decentralized, asynchronous messaging system with end-to-end encryption. I believe that the system could be extended to create private, secure and stable platforms for messaging and media sharing, and to build ad-hoc, failure-resistant terminals for secure transactions, for example in financial cryptographic systems.
+
+\bibliographystyle{acm}
+\bibliography{idas}
+
+\end{document}
